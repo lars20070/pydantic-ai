@@ -14,7 +14,7 @@ This command will execute all test cases found in the `tests/evals` directory wi
 
 ## Test Files
 
-The test suite includes:
+The test suite includes the following test files:
 
 - `test_dataset.py` - Tests for dataset functionality
 - `test_evaluator_base.py` - Tests for base evaluator classes
