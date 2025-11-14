@@ -24,7 +24,7 @@ __all__ = (
     'EvaluationReason',
     'EvaluationResult',
     'EvaluationScalar',
-    'Evaluator',
+    'PerCaseEvaluator',
     'EvaluatorFailure',
     'EvaluatorOutput',
     'EvaluatorSpec',
@@ -136,7 +136,7 @@ class _StrictABCMeta(ABCMeta):
 
 
 @dataclass(repr=False)
-class Evaluator(Generic[InputsT, OutputT, MetadataT], metaclass=_StrictABCMeta):
+class PerCaseEvaluator(Generic[InputsT, OutputT, MetadataT], metaclass=_StrictABCMeta):
     """Base class for all evaluators.
 
     Evaluators can assess the performance of a task in a variety of ways, as a function of the EvaluatorContext.

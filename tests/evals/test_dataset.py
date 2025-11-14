@@ -24,17 +24,17 @@ with try_import() as imports_successful:
     from pydantic_evals.dataset import increment_eval_metric, set_eval_attribute
     from pydantic_evals.evaluators import (
         EvaluationResult,
-        Evaluator,
         EvaluatorFailure,
         EvaluatorOutput,
         EvaluatorSpec,
         LLMJudge,
+        PerCaseEvaluator,
     )
     from pydantic_evals.evaluators.context import EvaluatorContext
     from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseAdapter, ReportCaseFailure
 
     @dataclass
-    class MockEvaluator(Evaluator[object, object, object]):
+    class MockEvaluator(PerCaseEvaluator[object, object, object]):
         """This is just for testing purposes. It just returns the wrapped value."""
 
         output: EvaluatorOutput
@@ -43,7 +43,7 @@ with try_import() as imports_successful:
             return self.output
 
     @dataclass(repr=False)
-    class Python(Evaluator[object, object, object]):
+    class Python(PerCaseEvaluator[object, object, object]):
         expression: str
         evaluation_name: str | None = field(default=None)
 
@@ -112,9 +112,9 @@ def example_dataset(
 
 
 @pytest.fixture
-def simple_evaluator() -> type[Evaluator[TaskInput, TaskOutput, TaskMetadata]]:
+def simple_evaluator() -> type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]]:
     @dataclass
-    class SimpleEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class SimpleEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):
             if ctx.expected_output is None:  # pragma: no cover
                 return {'result': 'no_expected_output'}
@@ -129,7 +129,7 @@ def simple_evaluator() -> type[Evaluator[TaskInput, TaskOutput, TaskMetadata]]:
 
 async def test_dataset_init(
     example_cases: list[Case[TaskInput, TaskOutput, TaskMetadata]],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test Dataset initialization."""
     dataset = Dataset(cases=example_cases, evaluators=[simple_evaluator()])
@@ -142,7 +142,7 @@ async def test_dataset_init(
 
 async def test_add_evaluator(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test adding evaluators to a dataset."""
 
@@ -152,7 +152,7 @@ async def test_add_evaluator(
     assert len(example_dataset.evaluators) == 1
 
     @dataclass
-    class MetadataEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class MetadataEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):  # pragma: no cover
             """Evaluator that uses metadata."""
             if ctx.metadata is None:
@@ -204,7 +204,7 @@ async def test_add_evaluator(
 
 async def test_evaluate_async(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test evaluating a dataset."""
     example_dataset.add_evaluator(simple_evaluator())
@@ -257,7 +257,7 @@ async def test_evaluate_async(
 
 async def test_evaluate_sync(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test evaluating a dataset."""
     example_dataset.add_evaluator(simple_evaluator())
@@ -301,8 +301,10 @@ async def test_evaluate_sync(
                 }
             },
             'span_id': '0000000000000003',
-            'task_duration': IsNumber(),  # the runtime behavior is not deterministic due to threading
-            'total_duration': IsNumber(),  # the runtime behavior is not deterministic due to threading
+            # the runtime behavior is not deterministic due to threading
+            'task_duration': IsNumber(),
+            # the runtime behavior is not deterministic due to threading
+            'total_duration': IsNumber(),
             'trace_id': '00000000000000000000000000000001',
         }
     )
@@ -328,7 +330,7 @@ async def test_evaluate_with_retried_task_and_evaluator(
     evaluator_attempt = 0
 
     @dataclass
-    class RetryEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class RetryEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):
             nonlocal evaluator_attempt
             if evaluator_attempt < 3:
@@ -391,7 +393,7 @@ async def test_evaluate_with_retried_task_and_evaluator(
 
 async def test_evaluate_with_concurrency(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test evaluating a dataset with concurrency limits."""
     example_dataset.add_evaluator(simple_evaluator())
@@ -444,7 +446,7 @@ async def test_evaluate_with_concurrency(
 
 async def test_evaluate_with_failing_task(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
 ):
     """Test evaluating a dataset with a failing task."""
     example_dataset.add_evaluator(simple_evaluator())
@@ -503,7 +505,7 @@ async def test_evaluate_with_failing_task(
 async def test_evaluate_with_failing_evaluator(example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata]):
     """Test evaluating a dataset with a failing evaluator."""
 
-    class FailingEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class FailingEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):
             raise ValueError('Evaluator error')
 
@@ -575,7 +577,8 @@ async def test_increment_eval_metric(example_dataset: Dataset[TaskInput, TaskOut
         for _ in inputs.query:
             increment_eval_metric('chars', 1)
 
-        increment_eval_metric('phantom', 0)  # doesn't get created due to being zero
+        # doesn't get created due to being zero
+        increment_eval_metric('phantom', 0)
 
         set_eval_attribute('is_about_france', 'France' in inputs.query)
         return TaskOutput(answer=f'answer to {inputs.query}')
@@ -848,7 +851,8 @@ async def test_deserializing_without_name(
 async def test_serialization_to_json(example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata], tmp_path: Path):
     """Test serializing a dataset to JSON."""
     json_path = tmp_path / 'test_cases.json'
-    example_dataset.to_file(json_path, fmt='json')  # purposely specify fmt, for coverage reasons
+    # purposely specify fmt, for coverage reasons
+    example_dataset.to_file(json_path, fmt='json')
 
     assert json_path.exists()
 
@@ -1015,12 +1019,12 @@ async def test_from_text_failure():
 
 async def test_duplicate_evaluator_failure(example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata]):
     @dataclass
-    class FirstEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class FirstEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):  # pragma: no cover
             return False
 
     @dataclass
-    class SecondEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class SecondEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):  # pragma: no cover
             return False
 
@@ -1141,7 +1145,7 @@ async def test_dataset_evaluate_with_failing_task(example_dataset: Dataset[TaskI
 async def test_dataset_evaluate_with_failing_evaluator(example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata]):
     """Test evaluating a dataset with a failing evaluator."""
 
-    class FailingEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class FailingEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> bool:
             raise ValueError('Evaluator failed')
 
@@ -1215,7 +1219,7 @@ async def test_dataset_evaluate_with_invalid_evaluator_result(
     class MyObject:
         pass
 
-    class InvalidEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class InvalidEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> Any:
             return MyObject()  # Return an invalid type
 
@@ -1359,11 +1363,11 @@ async def test_dataset_evaluate_with_empty_cases(example_dataset: Dataset[TaskIn
 async def test_dataset_evaluate_with_multiple_evaluators(example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata]):
     """Test evaluating a dataset with multiple evaluators."""
 
-    class FirstEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class FirstEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> int:
             return len(ctx.output.answer)
 
-    class SecondEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class SecondEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> int:
             return len(ctx.output.answer) + 1
 
@@ -1447,7 +1451,7 @@ def test_add_invalid_evaluator():
     class NotAnEvaluator:
         pass
 
-    class SimpleEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class SimpleEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):  # pragma: no cover
             return False
 
@@ -1517,7 +1521,7 @@ def test_evaluate_non_serializable_inputs():
 
 async def test_evaluate_async_logfire(
     example_dataset: Dataset[TaskInput, TaskOutput, TaskMetadata],
-    simple_evaluator: type[Evaluator[TaskInput, TaskOutput, TaskMetadata]],
+    simple_evaluator: type[PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]],
     capfire: CaptureLogfire,
 ):  # pragma: lax no cover
     """Test evaluating a dataset."""

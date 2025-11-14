@@ -11,7 +11,7 @@ from pydantic_ai.settings import ModelSettings
 
 from ..otel.span_tree import SpanQuery
 from .context import EvaluatorContext
-from .evaluator import EvaluationReason, EvaluationScalar, Evaluator, EvaluatorOutput
+from .evaluator import EvaluationReason, EvaluationScalar, EvaluatorOutput, PerCaseEvaluator
 
 __all__ = (
     'Equals',
@@ -26,7 +26,7 @@ __all__ = (
 
 
 @dataclass(repr=False)
-class Equals(Evaluator[object, object, object]):
+class Equals(PerCaseEvaluator[object, object, object]):
     """Check if the output exactly equals the provided value."""
 
     value: Any
@@ -37,7 +37,7 @@ class Equals(Evaluator[object, object, object]):
 
 
 @dataclass(repr=False)
-class EqualsExpected(Evaluator[object, object, object]):
+class EqualsExpected(PerCaseEvaluator[object, object, object]):
     """Check if the output exactly equals the expected output."""
 
     evaluation_name: str | None = field(default=None)
@@ -60,7 +60,7 @@ def _truncated_repr(value: Any, max_length: int = 100) -> str:
 
 
 @dataclass(repr=False)
-class Contains(Evaluator[object, object, object]):
+class Contains(PerCaseEvaluator[object, object, object]):
     """Check if the output contains the expected output.
 
     For strings, checks if expected_output is a substring of output.
@@ -102,8 +102,10 @@ class Contains(Evaluator[object, object, object]):
             if isinstance(ctx.output, dict):
                 if isinstance(self.value, dict):
                     # Cast to Any to avoid type checking issues
-                    output_dict = cast(dict[Any, Any], ctx.output)  # pyright: ignore[reportUnknownMemberType]
-                    expected_dict = cast(dict[Any, Any], self.value)  # pyright: ignore[reportUnknownMemberType]
+                    # pyright: ignore[reportUnknownMemberType]
+                    output_dict = cast(dict[Any, Any], ctx.output)
+                    # pyright: ignore[reportUnknownMemberType]
+                    expected_dict = cast(dict[Any, Any], self.value)
                     for k in expected_dict:
                         if k not in output_dict:
                             k_trunc = _truncated_repr(k, max_length=30)
@@ -116,10 +118,13 @@ class Contains(Evaluator[object, object, object]):
                             failure_reason = f'Output dictionary has different value for key {k_trunc}: {output_v_trunc} != {expected_v_trunc}'
                             break
                 else:
-                    if self.value not in ctx.output:  # pyright: ignore[reportUnknownMemberType]
-                        output_trunc = _truncated_repr(ctx.output, max_length=200)  # pyright: ignore[reportUnknownMemberType]
+                    # pyright: ignore[reportUnknownMemberType]
+                    if self.value not in ctx.output:
+                        # pyright: ignore[reportUnknownMemberType]
+                        output_trunc = _truncated_repr(ctx.output, max_length=200)
                         failure_reason = f'Output {output_trunc} does not contain provided value as a key'
-            elif self.value not in ctx.output:  # pyright: ignore[reportOperatorIssue]  # will be handled by except block
+            # pyright: ignore[reportOperatorIssue]  # will be handled by except block
+            elif self.value not in ctx.output:
                 output_trunc = _truncated_repr(ctx.output, max_length=200)
                 failure_reason = f'Output {output_trunc} does not contain provided value'
         except (TypeError, ValueError) as e:
@@ -129,7 +134,7 @@ class Contains(Evaluator[object, object, object]):
 
 
 @dataclass(repr=False)
-class IsInstance(Evaluator[object, object, object]):
+class IsInstance(PerCaseEvaluator[object, object, object]):
     """Check if the output is an instance of a type with the given name."""
 
     type_name: str
@@ -148,7 +153,7 @@ class IsInstance(Evaluator[object, object, object]):
 
 
 @dataclass(repr=False)
-class MaxDuration(Evaluator[object, object, object]):
+class MaxDuration(PerCaseEvaluator[object, object, object]):
     """Check if the execution time is under the specified maximum."""
 
     seconds: float | timedelta
@@ -183,7 +188,7 @@ def _update_combined_output(
 
 
 @dataclass(repr=False)
-class LLMJudge(Evaluator[object, object, object]):
+class LLMJudge(PerCaseEvaluator[object, object, object]):
     """Judge whether the output of a language model meets the criteria of a provided rubric.
 
     If you do not specify a model, it uses the default model for judging. This starts as 'openai:gpt-4o', but can be
@@ -254,7 +259,7 @@ class LLMJudge(Evaluator[object, object, object]):
 
 
 @dataclass(repr=False)
-class HasMatchingSpan(Evaluator[object, object, object]):
+class HasMatchingSpan(PerCaseEvaluator[object, object, object]):
     """Check if the span tree contains a span that matches the specified query."""
 
     query: SpanQuery
@@ -267,7 +272,7 @@ class HasMatchingSpan(Evaluator[object, object, object]):
         return ctx.span_tree.any(self.query)
 
 
-DEFAULT_EVALUATORS: tuple[type[Evaluator[object, object, object]], ...] = (
+DEFAULT_EVALUATORS: tuple[type[PerCaseEvaluator[object, object, object]], ...] = (
     Equals,
     EqualsExpected,
     Contains,

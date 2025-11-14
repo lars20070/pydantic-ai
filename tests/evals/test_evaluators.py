@@ -32,9 +32,9 @@ with try_import() as imports_successful:
     from pydantic_evals.evaluators.evaluator import (
         EvaluationReason,
         EvaluationResult,
-        Evaluator,
         EvaluatorFailure,
         EvaluatorOutput,
+        PerCaseEvaluator,
     )
     from pydantic_evals.evaluators.spec import EvaluatorSpec
     from pydantic_evals.otel._context_in_memory_span_exporter import context_subtree
@@ -134,7 +134,7 @@ async def test_llm_judge_serialization():
         def system(self) -> str:
             return 'my-system'
 
-    adapter = TypeAdapter(Evaluator)
+    adapter = TypeAdapter(PerCaseEvaluator)
 
     assert adapter.dump_python(LLMJudge(rubric='my rubric', model=MyModel())) == {
         'name': 'LLMJudge',
@@ -146,7 +146,7 @@ async def test_evaluator_call(test_context: EvaluatorContext[TaskInput, TaskOutp
     """Test calling an Evaluator."""
 
     @dataclass
-    class ExampleEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class ExampleEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         """A test evaluator for testing purposes."""
 
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> EvaluatorOutput:
@@ -216,7 +216,7 @@ async def test_custom_evaluator(test_context: EvaluatorContext[TaskInput, TaskOu
     """Test a custom evaluator."""
 
     @dataclass
-    class CustomEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class CustomEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> EvaluatorOutput:
             # Check if the answer is correct based on expected output
             is_correct = ctx.output.answer == ctx.expected_output.answer if ctx.expected_output else False
@@ -236,7 +236,7 @@ async def test_custom_evaluator(test_context: EvaluatorContext[TaskInput, TaskOu
 
 async def test_custom_evaluator_name(test_context: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]):
     @dataclass
-    class CustomNameFieldEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class CustomNameFieldEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         result: int
         evaluation_name: str
 
@@ -257,7 +257,7 @@ async def test_custom_evaluator_name(test_context: EvaluatorContext[TaskInput, T
     )
 
     @dataclass
-    class CustomNamePropertyEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class CustomNamePropertyEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         result: int
         my_name: str
 
@@ -286,7 +286,7 @@ async def test_evaluator_error_handling(test_context: EvaluatorContext[TaskInput
     """Test error handling in evaluators."""
 
     @dataclass
-    class FailingEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class FailingEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> EvaluatorOutput:
             raise ValueError('Simulated error')
 
@@ -306,7 +306,7 @@ async def test_evaluator_with_null_values():
     """Test evaluator with null expected_output and metadata."""
 
     @dataclass
-    class NullValueEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class NullValueEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> EvaluatorOutput:
             return {
                 'has_expected_output': ctx.expected_output is not None,
@@ -583,7 +583,8 @@ async def test_import_errors():
         ImportError,
         match='The `Python` evaluator has been removed for security reasons. See https://github.com/pydantic/pydantic-ai/pull/2808 for more details and a workaround.',
     ):
-        from pydantic_evals.evaluators import Python  # pyright: ignore[reportUnusedImport]
+        # pyright: ignore[reportUnusedImport]
+        from pydantic_evals.evaluators import Python
 
     with pytest.raises(
         ImportError,
@@ -595,7 +596,8 @@ async def test_import_errors():
         ImportError,
         match="cannot import name 'Foo' from 'pydantic_evals.evaluators'",
     ):
-        from pydantic_evals.evaluators import Foo  # pyright: ignore[reportUnusedImport]
+        # pyright: ignore[reportUnusedImport]
+        from pydantic_evals.evaluators import Foo
 
     with pytest.raises(
         ImportError,

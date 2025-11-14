@@ -16,7 +16,7 @@ from typing_extensions import TypeVar
 from pydantic_ai import Agent, models
 from pydantic_ai._utils import strip_markdown_fences
 from pydantic_evals import Dataset
-from pydantic_evals.evaluators.evaluator import Evaluator
+from pydantic_evals.evaluators.evaluator import PerCaseEvaluator
 
 __all__ = ('generate_dataset',)
 
@@ -34,7 +34,7 @@ async def generate_dataset(
     *,
     dataset_type: type[Dataset[InputsT, OutputT, MetadataT]],
     path: Path | str | None = None,
-    custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+    custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
     model: models.Model | models.KnownModelName = 'openai:gpt-4o',
     n_examples: int = 3,
     extra_instructions: str | None = None,

@@ -17,8 +17,8 @@ with try_import() as imports_successful:
     from pydantic_evals.evaluators.evaluator import (
         EvaluationReason,
         EvaluationResult,
-        Evaluator,
         EvaluatorFailure,
+        PerCaseEvaluator,
     )
     from pydantic_evals.otel._errors import SpanTreeRecordingError
 
@@ -47,7 +47,7 @@ def test_evaluation_result():
     """Test EvaluationResult class."""
 
     @dataclass
-    class DummyEvaluator(Evaluator[Any, Any, Any]):
+    class DummyEvaluator(PerCaseEvaluator[Any, Any, Any]):
         def evaluate(self, ctx: EvaluatorContext) -> bool:
             raise NotImplementedError
 
@@ -81,7 +81,8 @@ def test_strict_abc_meta():
     with pytest.raises(TypeError) as exc_info:
 
         @dataclass
-        class InvalidEvaluator(Evaluator[Any, Any, Any]):  # pyright: ignore[reportUnusedClass]
+        # pyright: ignore[reportUnusedClass]
+        class InvalidEvaluator(PerCaseEvaluator[Any, Any, Any]):
             pass
 
     assert 'must implement all abstract methods' in str(exc_info.value)
@@ -91,7 +92,7 @@ def test_strict_abc_meta():
 if TYPE_CHECKING or imports_successful():  # pragma: no branch
 
     @dataclass
-    class SimpleEvaluator(Evaluator[Any, Any, Any]):
+    class SimpleEvaluator(PerCaseEvaluator[Any, Any, Any]):
         value: Any = True
         reason: str | None = None
 
@@ -101,7 +102,7 @@ if TYPE_CHECKING or imports_successful():  # pragma: no branch
             return self.value
 
     @dataclass
-    class AsyncEvaluator(Evaluator[Any, Any, Any]):
+    class AsyncEvaluator(PerCaseEvaluator[Any, Any, Any]):
         value: Any = True
         delay: float = 0.1
 
@@ -110,7 +111,7 @@ if TYPE_CHECKING or imports_successful():  # pragma: no branch
             return self.value
 
     @dataclass
-    class MultiEvaluator(Evaluator[Any, Any, Any]):
+    class MultiEvaluator(PerCaseEvaluator[Any, Any, Any]):
         def evaluate(self, ctx: EvaluatorContext) -> dict[str, bool]:
             return {'test1': True, 'test2': False}
 
@@ -185,7 +186,7 @@ async def test_evaluator_serialization():
     """Test evaluator serialization."""
 
     @dataclass
-    class ExampleEvaluator(Evaluator[Any, Any, Any]):
+    class ExampleEvaluator(PerCaseEvaluator[Any, Any, Any]):
         value: int = 42
         optional: str | None = None
         default_value: bool = False
@@ -196,7 +197,7 @@ async def test_evaluator_serialization():
 
     # Test with default values
     evaluator = ExampleEvaluator()
-    adapter = TypeAdapter(Evaluator)
+    adapter = TypeAdapter(PerCaseEvaluator)
     assert adapter.dump_python(evaluator, context=None) == snapshot({'arguments': None, 'name': 'ExampleEvaluator'})
     assert adapter.dump_python(evaluator, context={'use_short_form': True}) == snapshot('ExampleEvaluator')
 
@@ -216,7 +217,7 @@ async def test_evaluator_serialization():
 
     # Test with no arguments
     @dataclass
-    class NoArgsEvaluator(Evaluator[Any, Any, Any]):
+    class NoArgsEvaluator(PerCaseEvaluator[Any, Any, Any]):
         def evaluate(self, ctx: EvaluatorContext) -> bool:
             raise NotImplementedError
 

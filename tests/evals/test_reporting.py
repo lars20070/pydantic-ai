@@ -10,7 +10,7 @@ from ..conftest import try_import
 from .utils import render_table
 
 with try_import() as imports_successful:
-    from pydantic_evals.evaluators import EvaluationResult, Evaluator, EvaluatorContext
+    from pydantic_evals.evaluators import EvaluationResult, EvaluatorContext, PerCaseEvaluator
     from pydantic_evals.reporting import (
         EvaluationRenderer,
         EvaluationReport,
@@ -34,8 +34,8 @@ class TaskMetadata(BaseModel):
 
 
 @pytest.fixture
-def mock_evaluator() -> Evaluator[TaskInput, TaskOutput, TaskMetadata]:
-    class MockEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+def mock_evaluator() -> PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]:
+    class MockEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> bool:
             raise NotImplementedError
 
@@ -43,7 +43,7 @@ def mock_evaluator() -> Evaluator[TaskInput, TaskOutput, TaskMetadata]:
 
 
 @pytest.fixture
-def sample_assertion(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[bool]:
+def sample_assertion(mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[bool]:
     return EvaluationResult(
         name='MockEvaluator',
         value=True,
@@ -53,7 +53,7 @@ def sample_assertion(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetada
 
 
 @pytest.fixture
-def sample_score(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[float]:
+def sample_score(mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[float]:
     return EvaluationResult(
         name='MockEvaluator',
         value=2.5,
@@ -63,7 +63,7 @@ def sample_score(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata])
 
 
 @pytest.fixture
-def sample_label(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[str]:
+def sample_label(mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]) -> EvaluationResult[str]:
     return EvaluationResult(
         name='MockEvaluator',
         value='hello',
@@ -388,7 +388,7 @@ async def test_report_case_aggregate_average():
     """Test ReportCaseAggregate.average() method."""
 
     @dataclass
-    class MockEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class MockEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> float:
             raise NotImplementedError
 
@@ -473,8 +473,10 @@ async def test_report_case_aggregate_average():
 
     assert aggregate.name == 'Averages'
     assert aggregate.scores['score1'] == 0.75  # (0.8 + 0.7) / 2
-    assert aggregate.labels['label1']['good'] == 1.0  # Both cases have 'good' label
-    assert abs(aggregate.metrics['accuracy'] - 0.90) < 1e-10  # floating-point error  # (0.95 + 0.85) / 2
+    # Both cases have 'good' label
+    assert aggregate.labels['label1']['good'] == 1.0
+    # floating-point error  # (0.95 + 0.85) / 2
+    assert abs(aggregate.metrics['accuracy'] - 0.90) < 1e-10
     assert aggregate.assertions == 0.5  # 1 passing out of 2 assertions
     assert aggregate.task_duration == 0.125  # (0.1 + 0.15) / 2
     assert aggregate.total_duration == 0.225  # (0.2 + 0.25) / 2
@@ -818,10 +820,10 @@ async def test_evaluation_renderer_failures_without_error_message(sample_report_
 
 async def test_evaluation_renderer_evaluator_failures_without_message():
     """Test evaluator failures without error messages."""
-    from pydantic_evals.evaluators.evaluator import Evaluator, EvaluatorFailure
+    from pydantic_evals.evaluators.evaluator import EvaluatorFailure, PerCaseEvaluator
 
     @dataclass
-    class MockEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+    class MockEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> float:
             raise NotImplementedError
 

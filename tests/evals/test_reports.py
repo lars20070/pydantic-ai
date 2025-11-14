@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from ..conftest import try_import
 
 with try_import() as imports_successful:
-    from pydantic_evals.evaluators import EvaluationResult, Evaluator, EvaluatorContext
+    from pydantic_evals.evaluators import EvaluationResult, EvaluatorContext, PerCaseEvaluator
     from pydantic_evals.reporting import (
         EvaluationReport,
         EvaluationReportAdapter,
@@ -41,8 +41,8 @@ def sample_evaluator_output() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_evaluator() -> Evaluator[TaskInput, TaskOutput, TaskMetadata]:
-    class MockEvaluator(Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+def mock_evaluator() -> PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]:
+    class MockEvaluator(PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
         def evaluate(self, ctx: EvaluatorContext[TaskInput, TaskOutput, TaskMetadata]) -> bool:
             raise NotImplementedError
 
@@ -51,7 +51,7 @@ def mock_evaluator() -> Evaluator[TaskInput, TaskOutput, TaskMetadata]:
 
 @pytest.fixture
 def sample_evaluation_result(
-    sample_evaluator_output: dict[str, Any], mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata]
+    sample_evaluator_output: dict[str, Any], mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]
 ) -> EvaluationResult[bool]:
     return EvaluationResult(
         name='MockEvaluator',
@@ -103,7 +103,7 @@ async def test_report_init(sample_report_case: ReportCase):
 async def test_report_add_case(
     sample_report: EvaluationReport,
     sample_report_case: ReportCase,
-    mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata],
+    mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata],
 ):
     """Test adding cases to a report."""
     initial_case_count = len(sample_report.cases)
@@ -170,7 +170,7 @@ async def test_report_serialization(sample_report: EvaluationReport):
     assert len(serialized['cases']) == 1
 
 
-async def test_report_with_error(mock_evaluator: Evaluator[TaskInput, TaskOutput, TaskMetadata]):
+async def test_report_with_error(mock_evaluator: PerCaseEvaluator[TaskInput, TaskOutput, TaskMetadata]):
     """Test a report with error in one of the cases."""
     # Create an evaluator output
     error_output = EvaluationResult[bool](

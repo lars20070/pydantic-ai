@@ -7,15 +7,15 @@ from pydantic_ai_examples.evals.models import (
     TimeRangeResponse,
 )
 from pydantic_evals.evaluators import (
-    Evaluator,
     EvaluatorContext,
     EvaluatorOutput,
+    PerCaseEvaluator,
 )
 from pydantic_evals.otel import SpanQuery
 
 
 @dataclass
-class ValidateTimeRange(Evaluator[TimeRangeInputs, TimeRangeResponse]):
+class ValidateTimeRange(PerCaseEvaluator[TimeRangeInputs, TimeRangeResponse]):
     def evaluate(
         self, ctx: EvaluatorContext[TimeRangeInputs, TimeRangeResponse]
     ) -> EvaluatorOutput:
@@ -31,7 +31,7 @@ class ValidateTimeRange(Evaluator[TimeRangeInputs, TimeRangeResponse]):
 
 
 @dataclass
-class UserMessageIsConcise(Evaluator[TimeRangeInputs, TimeRangeResponse]):
+class UserMessageIsConcise(PerCaseEvaluator[TimeRangeInputs, TimeRangeResponse]):
     async def evaluate(
         self,
         ctx: EvaluatorContext[TimeRangeInputs, TimeRangeResponse],
@@ -48,7 +48,7 @@ class UserMessageIsConcise(Evaluator[TimeRangeInputs, TimeRangeResponse]):
 
 
 @dataclass
-class AgentCalledTool(Evaluator[object, object, object]):
+class AgentCalledTool(PerCaseEvaluator[object, object, object]):
     agent_name: str
     tool_name: str
 

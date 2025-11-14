@@ -17,9 +17,9 @@ from .evaluator import (
     EvaluationReason,
     EvaluationResult,
     EvaluationScalar,
-    Evaluator,
     EvaluatorFailure,
     EvaluatorOutput,
+    PerCaseEvaluator,
 )
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ MetadataT = TypeVar('MetadataT', default=Any, contravariant=True)
 
 
 async def run_evaluator(
-    evaluator: Evaluator[InputsT, OutputT, MetadataT],
+    evaluator: PerCaseEvaluator[InputsT, OutputT, MetadataT],
     ctx: EvaluatorContext[InputsT, OutputT, MetadataT],
     retry: RetryConfig | None = None,
 ) -> list[EvaluationResult] | EvaluatorFailure:

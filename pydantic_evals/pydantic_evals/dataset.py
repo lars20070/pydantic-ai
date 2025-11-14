@@ -37,7 +37,7 @@ from typing_extensions import NotRequired, Self, TypedDict, TypeVar
 from pydantic_evals._utils import get_event_loop
 
 from ._utils import get_unwrapped_function_name, logfire_span, task_group_gather
-from .evaluators import EvaluationResult, Evaluator
+from .evaluators import EvaluationResult, PerCaseEvaluator
 from .evaluators._run_evaluator import run_evaluator
 from .evaluators.common import DEFAULT_EVALUATORS
 from .evaluators.context import EvaluatorContext
@@ -136,7 +136,7 @@ class Case(Generic[InputsT, OutputT, MetadataT]):
     """
     expected_output: OutputT | None = None
     """Expected output of the task. This is the expected output of the task that will be evaluated."""
-    evaluators: list[Evaluator[InputsT, OutputT, MetadataT]] = field(default_factory=list)
+    evaluators: list[PerCaseEvaluator[InputsT, OutputT, MetadataT]] = field(default_factory=list)
     """Evaluators to be used just on this case."""
 
     def __init__(
@@ -146,7 +146,7 @@ class Case(Generic[InputsT, OutputT, MetadataT]):
         inputs: InputsT,
         metadata: MetadataT | None = None,
         expected_output: OutputT | None = None,
-        evaluators: tuple[Evaluator[InputsT, OutputT, MetadataT], ...] = (),
+        evaluators: tuple[PerCaseEvaluator[InputsT, OutputT, MetadataT], ...] = (),
     ):
         """Initialize a new test case.
 
@@ -223,7 +223,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
     """Optional name of the dataset."""
     cases: list[Case[InputsT, OutputT, MetadataT]]
     """List of test cases in the dataset."""
-    evaluators: list[Evaluator[InputsT, OutputT, MetadataT]] = []
+    evaluators: list[PerCaseEvaluator[InputsT, OutputT, MetadataT]] = []
     """List of evaluators to be used on all cases in the dataset."""
 
     def __init__(
@@ -231,7 +231,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         *,
         name: str | None = None,
         cases: Sequence[Case[InputsT, OutputT, MetadataT]],
-        evaluators: Sequence[Evaluator[InputsT, OutputT, MetadataT]] = (),
+        evaluators: Sequence[PerCaseEvaluator[InputsT, OutputT, MetadataT]] = (),
     ):
         """Initialize a new dataset with test cases and optional evaluators.
 
@@ -411,7 +411,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         inputs: InputsT,
         metadata: MetadataT | None = None,
         expected_output: OutputT | None = None,
-        evaluators: tuple[Evaluator[InputsT, OutputT, MetadataT], ...] = (),
+        evaluators: tuple[PerCaseEvaluator[InputsT, OutputT, MetadataT], ...] = (),
     ) -> None:
         """Adds a case to the dataset.
 
@@ -438,7 +438,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
 
     def add_evaluator(
         self,
-        evaluator: Evaluator[InputsT, OutputT, MetadataT],
+        evaluator: PerCaseEvaluator[InputsT, OutputT, MetadataT],
         specific_case: str | None = None,
     ) -> None:
         """Adds an evaluator to the dataset or a specific case.
@@ -490,7 +490,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         cls,
         path: Path | str,
         fmt: Literal['yaml', 'json'] | None = None,
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> Self:
         """Load a dataset from a file.
 
@@ -522,7 +522,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         cls,
         contents: str,
         fmt: Literal['yaml', 'json'] = 'yaml',
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
         *,
         default_name: str | None = None,
     ) -> Self:
@@ -553,7 +553,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
     def from_dict(
         cls,
         data: dict[str, Any],
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
         *,
         default_name: str | None = None,
     ) -> Self:
@@ -579,7 +579,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
     def _from_dataset_model(
         cls,
         dataset_model: _DatasetModel[InputsT, OutputT, MetadataT],
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
         default_name: str | None = None,
     ) -> Self:
         """Create a Dataset from a _DatasetModel.
@@ -596,7 +596,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
 
         cases: list[Case[InputsT, OutputT, MetadataT]] = []
         errors: list[ValueError] = []
-        dataset_evaluators: list[Evaluator] = []
+        dataset_evaluators: list[PerCaseEvaluator] = []
         for spec in dataset_model.evaluators:
             try:
                 dataset_evaluator = _load_evaluator_from_registry(registry, None, spec)
@@ -606,7 +606,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
             dataset_evaluators.append(dataset_evaluator)
 
         for row in dataset_model.cases:
-            evaluators: list[Evaluator] = []
+            evaluators: list[PerCaseEvaluator] = []
             for spec in row.evaluators:
                 try:
                     evaluator = _load_evaluator_from_registry(registry, row.name, spec)
@@ -635,7 +635,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         path: Path | str,
         fmt: Literal['yaml', 'json'] | None = None,
         schema_path: Path | str | None = DEFAULT_SCHEMA_PATH_TEMPLATE,
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
     ):
         """Save the dataset to a file.
 
@@ -680,7 +680,7 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
     @classmethod
     def model_json_schema_with_evaluators(
         cls,
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> dict[str, Any]:
         """Generate a JSON schema for this dataset type, including evaluator details.
 
@@ -709,10 +709,12 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
                     required_type_hints[p.name] = type_hints[p.name]
 
             def _make_typed_dict(cls_name_prefix: str, fields: dict[str, Any]) -> Any:
-                td = TypedDict(f'{cls_name_prefix}_{name}', fields)  # pyright: ignore[reportArgumentType]
+                # pyright: ignore[reportArgumentType]
+                td = TypedDict(f'{cls_name_prefix}_{name}', fields)
                 config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
                 # TODO: Replace with pydantic.with_config once pydantic 2.11 is the min supported version
-                td.__pydantic_config__ = config  # pyright: ignore[reportAttributeAccessIssue]
+                # pyright: ignore[reportAttributeAccessIssue]
+                td.__pydantic_config__ = config
                 return td
 
             # Shortest form: just the call name
@@ -735,11 +737,14 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
         in_type, out_type, meta_type = cls._params()
 
         # Note: we shadow the `Case` and `Dataset` class names here to generate a clean JSON schema
-        class Case(BaseModel, extra='forbid'):  # pyright: ignore[reportUnusedClass]  # this _is_ used below, but pyright doesn't seem to notice..
+        # pyright: ignore[reportUnusedClass]  # this _is_ used below, but pyright doesn't seem to notice..
+        class Case(BaseModel, extra='forbid'):
             name: str | None = None
             inputs: in_type  # pyright: ignore[reportInvalidTypeForm]
-            metadata: meta_type | None = None  # pyright: ignore[reportInvalidTypeForm,reportUnknownVariableType]
-            expected_output: out_type | None = None  # pyright: ignore[reportInvalidTypeForm,reportUnknownVariableType]
+            # pyright: ignore[reportInvalidTypeForm,reportUnknownVariableType]
+            metadata: meta_type | None = None
+            # pyright: ignore[reportInvalidTypeForm,reportUnknownVariableType]
+            expected_output: out_type | None = None
             if evaluator_schema_types:  # pragma: no branch
                 evaluators: list[Union[tuple(evaluator_schema_types)]] = []  # pyright: ignore  # noqa UP007
 
@@ -756,7 +761,9 @@ class Dataset(BaseModel, Generic[InputsT, OutputT, MetadataT], extra='forbid', a
 
     @classmethod
     def _save_schema(
-        cls, path: Path | str, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()
+        cls,
+        path: Path | str,
+        custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = (),
     ):
         """Save the JSON schema for this dataset type to a file.
 
@@ -976,7 +983,7 @@ async def _run_task_and_evaluators(
     task: Callable[[InputsT], Awaitable[OutputT]] | Callable[[InputsT], OutputT],
     case: Case[InputsT, OutputT, MetadataT],
     report_case_name: str,
-    dataset_evaluators: list[Evaluator[InputsT, OutputT, MetadataT]],
+    dataset_evaluators: list[PerCaseEvaluator[InputsT, OutputT, MetadataT]],
     retry_task: RetryConfig | None,
     retry_evaluators: RetryConfig | None,
 ) -> ReportCase[InputsT, OutputT, MetadataT] | ReportCaseFailure[InputsT, OutputT, MetadataT]:
@@ -1155,8 +1162,8 @@ def _get_span_duration(span: logfire_api.LogfireSpan, fallback: float) -> float:
 
 
 def _get_registry(
-    custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]],
-) -> Mapping[str, type[Evaluator[InputsT, OutputT, MetadataT]]]:
+    custom_evaluator_types: Sequence[type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]],
+) -> Mapping[str, type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]]:
     """Create a registry of evaluator types from default and custom evaluators.
 
     Args:
@@ -1165,10 +1172,10 @@ def _get_registry(
     Returns:
         A mapping from evaluator names to evaluator classes.
     """
-    registry: dict[str, type[Evaluator[InputsT, OutputT, MetadataT]]] = {}
+    registry: dict[str, type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]] = {}
 
     for evaluator_class in custom_evaluator_types:
-        if not issubclass(evaluator_class, Evaluator):
+        if not issubclass(evaluator_class, PerCaseEvaluator):
             raise ValueError(
                 f'All custom evaluator classes must be subclasses of Evaluator, but {evaluator_class} is not'
             )
@@ -1189,10 +1196,10 @@ def _get_registry(
 
 
 def _load_evaluator_from_registry(
-    registry: Mapping[str, type[Evaluator[InputsT, OutputT, MetadataT]]],
+    registry: Mapping[str, type[PerCaseEvaluator[InputsT, OutputT, MetadataT]]],
     case_name: str | None,
     spec: EvaluatorSpec,
-) -> Evaluator[InputsT, OutputT, MetadataT]:
+) -> PerCaseEvaluator[InputsT, OutputT, MetadataT]:
     """Load an evaluator from the registry based on a specification.
 
     Args:
